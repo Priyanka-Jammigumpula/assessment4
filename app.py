@@ -1,20 +1,23 @@
 from flask import Flask, jsonify
-import pymssql
+import pyodbc
+import os
 
 app = Flask(__name__)
 
 @app.route('/employees/<int:dept_id>')
 def get_employees(dept_id):
-    conn = pymssql.connect(
-        server=os.environ['DB_SERVER'],
-        user=os.environ['DB_USER'],
-        password=os.environ['DB_PASSWORD'],
-        database=os.environ['DB_NAME']
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=' + os.environ['DB_SERVER'] + ';'
+        'DATABASE=' + os.environ['DB_NAME'] + ';'
+        'UID=' + os.environ['DB_USER'] + ';'
+        'PWD=' + os.environ['DB_PASSWORD']
     )
     try:
-        cursor = conn.cursor(as_dict=True)
-        cursor.execute('SELECT * FROM Employees WHERE DepartmentID = %s', (dept_id,))
-        employees = cursor.fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM Employees WHERE DepartmentID = ?', (dept_id,))
+        columns = [column[0] for column in cursor.description]
+        employees = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return jsonify(employees)
     finally:
         conn.close()
